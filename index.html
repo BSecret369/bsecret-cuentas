@@ -147,9 +147,10 @@ tbody tr:hover td{background:var(--bg2)}
 </div>
 
 <div class="header">
-  <div style="display:flex;align-items:center">
+  <div style="display:flex;align-items:center;gap:16px">
     <div class="logo">B<span>Secret</span> · Cuentas</div>
     <span class="dot" id="saveDot"></span>
+    <span id="fechaHoy" style="font-size:13px;color:var(--text2)"></span>
   </div>
   <div class="filters">
     <select id="filtMes" onchange="render()" style="font-size:12px;padding:5px 8px"><option value="">Todos los meses</option></select>
@@ -327,6 +328,11 @@ window.onload=function(){
 };
 
 function initApp(){
+  // fecha en header
+  const ahora = new Date();
+  const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const mesesNombres = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  document.getElementById('fechaHoy').textContent = dias[ahora.getDay()] + ', ' + ahora.getDate() + ' de ' + mesesNombres[ahora.getMonth()] + ' ' + ahora.getFullYear();
   try{const r=localStorage.getItem('bsecret_v5');if(r)D=JSON.parse(r);}catch(e){}
   if(!D.cuentas||!D.cuentas.length)D.cuentas=JSON.parse(JSON.stringify(DEFAULT_CUENTAS));
   if(!D.previsiones)D.previsiones={ing:2000,gas:500};
