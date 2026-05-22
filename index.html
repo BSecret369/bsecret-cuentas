@@ -79,6 +79,7 @@ tr:last-child td{border-bottom:none}tbody tr:hover td{background:var(--bg2)}
 .xlsbtn:hover{background:var(--gbg)}
 @media(max-width:600px){.main{padding:1rem}.sgrid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.header{padding:0 1rem;height:auto;padding:8px 1rem}.tabs{padding:0 .5rem}}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </head>
 <body>
 
@@ -201,6 +202,16 @@ tr:last-child td{border-bottom:none}tbody tr:hover td{background:var(--bg2)}
   </div>
   <p class="st">Por servicio</p>
   <div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1.25rem" id="servRes"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:0">
+    <div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem">
+      <p class="st" style="margin-bottom:1rem">Por servicio</p>
+      <div style="position:relative;height:220px"><canvas id="chartTarta"></canvas></div>
+    </div>
+    <div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem">
+      <p class="st" style="margin-bottom:1rem">Por mes</p>
+      <div style="position:relative;height:220px"><canvas id="chartBarras"></canvas></div>
+    </div>
+  </div>
 </div>
 
 <div class="sec" id="S5">
@@ -588,6 +599,47 @@ function rResumen(){
   const tikN=movs.filter(m=>m.tipo==='ingreso'&&m.servicio==='tiktok').length;
   if(tikT)rows+=`<div class="canrow"><span style="min-width:180px">TikTok / Manual</span><div class="pbg2"><div class="pf" style="width:${Math.round(tikT/tI*100)}%"></div></div><span style="min-width:65px;text-align:right;color:var(--green)">${fmt(tikT)}</span><span style="min-width:28px;text-align:right;font-size:11px;color:var(--text3)">${tikN}×</span></div>`;
   document.getElementById('servRes').innerHTML=rows||'<p style="font-size:12px;color:var(--text3)">Sin ventas en este periodo.</p>';
+  rCharts(movs);
+}
+
+let chartTartaInst=null, chartBarrasInst=null;
+
+function rCharts(movs){
+  // Tarta — por servicio
+  const colores=['#1D9E75','#378ADD','#BA7517','#534AB7','#E24B4A','#0F6E56','#185FA5'];
+  const tartaData=SERVICIOS.map(s=>movs.filter(m=>m.tipo==='ingreso'&&m.servicio===s.id).reduce((a,m)=>a+m.importe,0));
+  const tikVal=movs.filter(m=>m.tipo==='ingreso'&&m.servicio==='tiktok').reduce((a,m)=>a+m.importe,0);
+  const tartaLabels=[...SERVICIOS.map(s=>s.nombre),'TikTok/Manual'];
+  const tartaVals=[...tartaData,tikVal];
+  const tartaFilt=tartaLabels.map((l,i)=>({l,v:tartaVals[i]})).filter(x=>x.v>0);
+  const ctx1=document.getElementById('chartTarta').getContext('2d');
+  if(chartTartaInst)chartTartaInst.destroy();
+  if(tartaFilt.length===0){ctx1.clearRect(0,0,300,220);return;}
+  chartTartaInst=new Chart(ctx1,{
+    type:'doughnut',
+    data:{labels:tartaFilt.map(x=>x.l),datasets:[{data:tartaFilt.map(x=>x.v),backgroundColor:colores.slice(0,tartaFilt.length),borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:12,padding:8}}}}
+  });
+
+  // Barras — por mes (todos los datos, no filtrado)
+  const byMonth={};
+  D.movimientos.filter(m=>m.tipo==='ingreso').forEach(m=>{
+    if(!m.fecha)return;
+    const ym=m.fecha.substring(0,7);
+    byMonth[ym]=(byMonth[ym]||0)+m.importe;
+  });
+  const meses=Object.keys(byMonth).sort();
+  const ctx2=document.getElementById('chartBarras').getContext('2d');
+  if(chartBarrasInst)chartBarrasInst.destroy();
+  if(meses.length===0)return;
+  chartBarrasInst=new Chart(ctx2,{
+    type:'bar',
+    data:{
+      labels:meses.map(ym=>{const[y,m]=ym.split('-');return MESES_CORTO[parseInt(m)-1]+' '+y;}),
+      datasets:[{label:'Ingresos',data:meses.map(m=>Math.round(byMonth[m]*100)/100),backgroundColor:'rgba(29,158,117,0.7)',borderColor:'#0F6E56',borderWidth:1}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'€',font:{size:10}}},x:{ticks:{font:{size:10}}}}}
+  });
 }
 
 function rCuentas(){
