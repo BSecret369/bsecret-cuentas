@@ -13,7 +13,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .lbox{background:var(--bg);border:0.5px solid var(--border2);border-radius:16px;padding:2.5rem 2rem;width:300px;text-align:center}
 .llogo{font-size:22px;font-weight:700;margin-bottom:4px}.llogo span{color:var(--purple)}
 .lsub{font-size:13px;color:var(--text2);margin-bottom:1.75rem}
-.header{background:var(--bg);border-bottom:0.5px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:100}
+.header{background:var(--bg);border-bottom:0.5px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:100;flex-wrap:wrap;gap:8px}
 .logo{font-size:15px;font-weight:700}.logo span{color:var(--purple)}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--green);opacity:0;transition:opacity .3s;margin-left:8px;display:inline-block;vertical-align:middle}
 .dot.show{opacity:1}
@@ -73,7 +73,11 @@ tr:last-child td{border-bottom:none}tbody tr:hover td{background:var(--bg2)}
 .canrow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--border);font-size:12px}
 .canrow:last-child{border:none}.pbg2{flex:1;height:4px;background:var(--bg3);border-radius:2px}
 .pf{height:4px;border-radius:2px;background:var(--green)}
-@media(max-width:600px){.main{padding:1rem}.sgrid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.header{padding:0 1rem}.tabs{padding:0 .5rem}}
+.navbtn{border:0.5px solid var(--border2);background:var(--bg);color:var(--text);border-radius:var(--rs);padding:5px 12px;cursor:pointer;font-size:14px}
+.navbtn:hover{background:var(--bg2)}
+.xlsbtn{border:0.5px solid var(--green);color:var(--green);background:var(--bg);border-radius:var(--rs);padding:5px 12px;cursor:pointer;font-size:12px;font-weight:500}
+.xlsbtn:hover{background:var(--gbg)}
+@media(max-width:600px){.main{padding:1rem}.sgrid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.header{padding:0 1rem;height:auto;padding:8px 1rem}.tabs{padding:0 .5rem}}
 </style>
 </head>
 <body>
@@ -95,11 +99,13 @@ tr:last-child td{border-bottom:none}tbody tr:hover td{background:var(--bg2)}
     <div class="logo">B<span>Secret</span> · Cuentas</div>
     <span class="dot" id="saveDot"></span>
     <span id="fechaHoy" style="font-size:13px;color:var(--text2)"></span>
-    <span style="font-size:11px;color:var(--text3);margin-left:8px">v7</span>
+    <span style="font-size:11px;color:var(--text3)">v8</span>
   </div>
-  <div style="display:flex;gap:6px">
-    <select id="filtMes" onchange="render()" style="font-size:12px;padding:5px 8px"><option value="">Todos los meses</option></select>
-    <select id="filtAno" onchange="render()" style="font-size:12px;padding:5px 8px"><option value="">Todos los años</option></select>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="navbtn" onclick="cambiarMes(-1)">←</button>
+    <span id="mesLabel" style="font-size:13px;font-weight:500;min-width:130px;text-align:center">Todos los meses</span>
+    <button class="navbtn" onclick="cambiarMes(1)">→</button>
+    <button class="xlsbtn" onclick="exportExcel()">⬇ Excel</button>
   </div>
 </div>
 
@@ -148,7 +154,7 @@ tr:last-child td{border-bottom:none}tbody tr:hover td{background:var(--bg2)}
 
 <div class="sec" id="S2">
   <p class="st">Ingresos personales</p>
-  <p style="font-size:12px;color:var(--text2);margin-bottom:1rem">Pensión, extraescolares u otros ingresos no relacionados con el negocio. Se suman al saldo de la cuenta seleccionada.</p>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:1rem">Pensión, extraescolares u otros ingresos no relacionados con el negocio.</p>
   <div class="fr">
     <div class="fg"><label>Fecha</label><input type="date" id="pF" style="width:135px"></div>
     <div class="fg"><label>Concepto</label><input type="text" id="pC" placeholder="Ej: Pensión mayo..." style="width:200px"></div>
@@ -240,6 +246,8 @@ tr:last-child td{border-bottom:none}tbody tr:hover td{background:var(--bg2)}
 
 <script>
 const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const MESES_CORTO=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const DIAS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const SERVICIOS=[
   {id:'suscripcion',nombre:'Suscripción directos',precio:12,grupo:'Suscripciones'},
   {id:'app_tarot',nombre:'App Tarot',precio:13.95,grupo:'Suscripciones'},
@@ -260,6 +268,8 @@ const PW='bsecret2026';
 let GT='gasto_fijo';
 let D={cuentas:[],movimientos:[],prev:{ing:2000,gas:500},ctaSel:null};
 let curTab=0;
+// mes actual: {year, month} o null = todos
+let filtro={year:null,month:null};
 
 function checkPw(){
   if(document.getElementById('pwInput').value===PW){
@@ -281,25 +291,24 @@ window.onload=function(){
 
 function init(){
   try{
-    const r=localStorage.getItem('bsv6')||localStorage.getItem('bsecret_v5')||localStorage.getItem('bsecret_cuentas')||localStorage.getItem('bsecret_v4')||localStorage.getItem('mcuentas_v2');
-    if(r)D=JSON.parse(r);
-    // migrate old key to new
-    if(!localStorage.getItem('bsv6')&&r) localStorage.setItem('bsv6',r);
+    const r=localStorage.getItem('bsv6')||localStorage.getItem('bsecret_v5')||localStorage.getItem('bsecret_cuentas');
+    if(r){D=JSON.parse(r);if(!localStorage.getItem('bsv6'))localStorage.setItem('bsv6',r);}
   }catch(e){}
   if(!D.cuentas||!D.cuentas.length)D.cuentas=JSON.parse(JSON.stringify(DCUENTAS));
   if(!D.prev)D.prev={ing:2000,gas:500};
   if(!D.ctaSel)D.ctaSel=D.cuentas[0]?.id||null;
   const now=new Date();
-  const dias=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-  const ms=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-  document.getElementById('fechaHoy').textContent=dias[now.getDay()]+', '+now.getDate()+' de '+ms[now.getMonth()]+' '+now.getFullYear();
+  document.getElementById('fechaHoy').textContent=DIAS[now.getDay()]+', '+now.getDate()+' de '+MESES_CORTO[now.getMonth()]+' '+now.getFullYear();
+  // set filtro to current month
+  filtro={year:now.getFullYear(),month:now.getMonth()};
+  updMesLabel();
   document.getElementById('gF').value=hoy();
   document.getElementById('pF').value=hoy();
   document.getElementById('vF').value=hoy();
   document.getElementById('mF').value=hoy();
   document.getElementById('prevI').value=D.prev.ing||'';
   document.getElementById('prevG').value=D.prev.gas||'';
-  updFilters();popSelects();render();sw(0);
+  popSelects();render();sw(0);
 }
 
 function save(){
@@ -313,35 +322,30 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function gN(id){return D.cuentas.find(c=>c.id===id)?.nombre||id||'—';}
 function sN(id){return SERVICIOS.find(s=>s.id===id)?.nombre||id||'Manual';}
 
-function sw(n){
-  curTab=n;
-  for(let i=0;i<8;i++){
-    document.getElementById('T'+i).classList.toggle('active',i===n);
-    document.getElementById('S'+i).classList.toggle('on',i===n);
+function updMesLabel(){
+  const el=document.getElementById('mesLabel');
+  if(!filtro.year&&filtro.month===null){el.textContent='Todos los meses';return;}
+  el.textContent=MESES[filtro.month]+' '+filtro.year;
+}
+
+function cambiarMes(dir){
+  if(filtro.year===null){
+    const now=new Date();
+    filtro={year:now.getFullYear(),month:now.getMonth()};
+  } else {
+    let m=filtro.month+dir;
+    let y=filtro.year;
+    if(m>11){m=0;y++;}
+    if(m<0){m=11;y--;}
+    filtro={year:y,month:m};
   }
+  updMesLabel();render();
 }
 
 function fMovs(){
-  const fm=document.getElementById('filtMes').value;
-  const fa=document.getElementById('filtAno').value;
-  return D.movimientos.filter(x=>{
-    if(!x.fecha)return true;
-    const[y,m]=x.fecha.split('-');
-    if(fa&&y!==fa)return false;
-    if(fm&&m!==fm)return false;
-    return true;
-  });
-}
-
-function updFilters(){
-  const all=D.movimientos;
-  const ys=[...new Set(all.map(x=>x.fecha?.split('-')[0]).filter(Boolean))].sort().reverse();
-  const ms=[...new Set(all.map(x=>x.fecha?.split('-')[1]).filter(Boolean))].sort();
-  const fa=document.getElementById('filtAno'),fm=document.getElementById('filtMes');
-  const ca=fa.value,cm=fm.value;
-  fa.innerHTML='<option value="">Todos los años</option>'+ys.map(y=>`<option value="${y}">${y}</option>`).join('');
-  fm.innerHTML='<option value="">Todos los meses</option>'+ms.map(m=>`<option value="${m}">${MESES[parseInt(m)-1]}</option>`).join('');
-  if(ca)fa.value=ca;if(cm)fm.value=cm;
+  if(filtro.year===null) return D.movimientos;
+  const ym=filtro.year+'-'+String(filtro.month+1).padStart(2,'0');
+  return D.movimientos.filter(x=>(x.fecha||'').startsWith(ym));
 }
 
 function popSelects(){
@@ -371,6 +375,14 @@ function setGT(t){
   document.getElementById('destDiv').style.display=t==='transferencia'?'flex':'none';
 }
 
+function sw(n){
+  curTab=n;
+  for(let i=0;i<8;i++){
+    document.getElementById('T'+i).classList.toggle('active',i===n);
+    document.getElementById('S'+i).classList.toggle('on',i===n);
+  }
+}
+
 function rVentaGrid(){
   const gs=['Suscripciones','Cursos','Consultas'];
   let h='';
@@ -398,7 +410,7 @@ function regVenta(sid){
   const fb=document.getElementById('fb');
   fb.textContent='✓ '+s.nombre+' — +'+fmt(s.precio)+' en '+gN(D.ctaSel);
   setTimeout(()=>fb.textContent='',3000);
-  updFilters();save();rVentaGrid();rResumen();rCuentas();rGKpis();rIng();
+  save();rVentaGrid();rIng();rResumen();rCuentas();rGKpis();rPersonal();
 }
 
 function addManual(){
@@ -409,7 +421,7 @@ function addManual(){
   if(!c||isNaN(i)||i<=0){alert('Rellena concepto e importe');return;}
   D.movimientos.push({id:uid(),fecha:f,concepto:c,cuenta:cta,tipo:'ingreso',servicio:'tiktok',importe:i});
   document.getElementById('mC').value='';document.getElementById('mI').value='';
-  updFilters();save();render();
+  save();render();
 }
 
 function addPersonal(){
@@ -420,7 +432,7 @@ function addPersonal(){
   if(!c||isNaN(i)||i<=0){alert('Rellena concepto e importe');return;}
   D.movimientos.push({id:uid(),fecha:f,concepto:c,cuenta:cta,tipo:'ingreso_personal',importe:i});
   document.getElementById('pC').value='';document.getElementById('pI').value='';
-  updFilters();save();render();
+  save();render();
 }
 
 function addGasto(){
@@ -433,13 +445,13 @@ function addGasto(){
   if(GT==='transferencia')m.ctaDest=document.getElementById('gCtaDest').value;
   D.movimientos.push(m);
   document.getElementById('gC').value='';document.getElementById('gI').value='';
-  updFilters();save();render();
+  save();render();
 }
 
 function delMov(id){
   if(!confirm('¿Eliminar este movimiento?'))return;
   D.movimientos=D.movimientos.filter(x=>x.id!==id);
-  updFilters();save();render();
+  save();render();
 }
 
 function bTipo(t){
@@ -462,39 +474,27 @@ function render(){rVentaGrid();rIng();rPersonal();rResumen();rGastos();rCuentas(
 function rIng(){
   const movs=[...fMovs()].filter(m=>m.tipo==='ingreso').sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
   if(!movs.length){
-    document.getElementById('ingBody').innerHTML='<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Sin ingresos del negocio</td></tr>';
+    document.getElementById('ingBody').innerHTML='<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Sin ingresos del negocio en este periodo</td></tr>';
     return;
   }
   const byDay={};
-  movs.forEach(m=>{
-    const d=m.fecha||'sin fecha';
-    if(!byDay[d])byDay[d]=[];
-    byDay[d].push(m);
-  });
-  const dias2=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-  const meses2=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  movs.forEach(m=>{const d=m.fecha||'sin fecha';if(!byDay[d])byDay[d]=[];byDay[d].push(m);});
   let html='';
   Object.keys(byDay).sort((a,b)=>b.localeCompare(a)).forEach(dia=>{
     const ms=byDay[dia];
     const total=ms.reduce((s,m)=>s+m.importe,0);
     const fd=new Date(dia+'T00:00:00');
-    const label=isNaN(fd)?dia:dias2[fd.getDay()]+' '+fd.getDate()+' '+meses2[fd.getMonth()]+' '+fd.getFullYear();
-    // individual rows
+    const label=isNaN(fd)?dia:DIAS[fd.getDay()]+' '+fd.getDate()+' '+MESES_CORTO[fd.getMonth()]+' '+fd.getFullYear();
     ms.forEach(m=>{
-      html+=`<tr>
-        <td>${m.fecha||''}</td><td>${m.concepto}</td><td>${gN(m.cuenta)}</td><td>${sN(m.servicio)}</td>
+      html+=`<tr><td>${m.fecha||''}</td><td>${m.concepto}</td><td>${gN(m.cuenta)}</td><td>${sN(m.servicio)}</td>
         <td style="text-align:right;color:var(--green)">+${fmt(m.importe)}</td>
-        <td><button class="db" onclick="delMov('${m.id}')">✕</button></td>
-      </tr>`;
+        <td><button class="db" onclick="delMov('${m.id}')">✕</button></td></tr>`;
     });
-    // daily total row
     html+=`<tr style="background:var(--bg2);border-top:0.5px solid var(--border)">
-      <td colspan="3" style="font-size:11px;color:var(--text2);font-weight:500">Total ${label}</td>
+      <td colspan="3" style="font-size:11px;color:var(--text2);font-weight:600">Total ${label}</td>
       <td style="font-size:11px;color:var(--text2)">${ms.length} venta${ms.length!==1?'s':''}</td>
-      <td style="text-align:right;font-weight:700;color:var(--green)">+${fmt(total)}</td>
-      <td></td>
-    </tr>
-    <tr><td colspan="6" style="padding:4px 0;background:var(--bg3)"></td></tr>`;
+      <td style="text-align:right;font-weight:700;color:var(--green)">+${fmt(total)}</td><td></td></tr>
+    <tr><td colspan="6" style="padding:3px 0;background:var(--bg3)"></td></tr>`;
   });
   document.getElementById('ingBody').innerHTML=html;
 }
@@ -509,7 +509,7 @@ function rPersonal(){
     <tr><td>${m.fecha||''}</td><td>${m.concepto}</td><td>${gN(m.cuenta)}</td>
     <td style="text-align:right;font-weight:600;color:var(--blue)">+${fmt(m.importe)}</td>
     <td><button class="db" onclick="delMov('${m.id}')">✕</button></td></tr>`).join(''):
-    '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text3)">Sin ingresos personales registrados</td></tr>';
+    '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text3)">Sin ingresos personales en este periodo</td></tr>';
 }
 
 function rGKpis(){
@@ -532,7 +532,7 @@ function rGastos(){
     <td>${bTipo(m.tipo)}</td>
     <td style="text-align:right;font-weight:600;color:var(--red)">-${fmt(m.importe)}</td>
     <td><button class="db" onclick="delMov('${m.id}')">✕</button></td></tr>`).join(''):
-    '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Sin gastos registrados</td></tr>';
+    '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Sin gastos en este periodo</td></tr>';
 }
 
 function rResumen(){
@@ -547,14 +547,12 @@ function rResumen(){
   const pI=parseFloat(D.prev?.ing||0);
   const pG=parseFloat(D.prev?.gas||0);
   const sT=D.cuentas.reduce((s,c)=>s+calcSaldo(c.id),0);
-  // promedio diario: días transcurridos desde el primer ingreso del negocio en el periodo
   const ingMovs=movs.filter(m=>m.tipo==='ingreso');
   let promDia=0;
   if(ingMovs.length>0){
     const fechas=ingMovs.map(m=>m.fecha).filter(Boolean).sort();
     const primera=new Date(fechas[0]);
-    const hoyD=new Date();
-    hoyD.setHours(0,0,0,0);
+    const hoyD=new Date();hoyD.setHours(0,0,0,0);
     const diasTransc=Math.max(1,Math.round((hoyD-primera)/(1000*60*60*24))+1);
     promDia=ing/diasTransc;
   }
@@ -588,8 +586,8 @@ function rResumen(){
   }).join('');
   const tikT=movs.filter(m=>m.tipo==='ingreso'&&m.servicio==='tiktok').reduce((a,m)=>a+m.importe,0);
   const tikN=movs.filter(m=>m.tipo==='ingreso'&&m.servicio==='tiktok').length;
-  if(tikT)rows+=`<div class="canrow"><span style="min-width:180px">TikTok</span><div class="pbg2"><div class="pf" style="width:${Math.round(tikT/tI*100)}%"></div></div><span style="min-width:65px;text-align:right;color:var(--green)">${fmt(tikT)}</span><span style="min-width:28px;text-align:right;font-size:11px;color:var(--text3)">${tikN}×</span></div>`;
-  document.getElementById('servRes').innerHTML=rows||'<p style="font-size:12px;color:var(--text3)">Sin ventas registradas aún.</p>';
+  if(tikT)rows+=`<div class="canrow"><span style="min-width:180px">TikTok / Manual</span><div class="pbg2"><div class="pf" style="width:${Math.round(tikT/tI*100)}%"></div></div><span style="min-width:65px;text-align:right;color:var(--green)">${fmt(tikT)}</span><span style="min-width:28px;text-align:right;font-size:11px;color:var(--text3)">${tikN}×</span></div>`;
+  document.getElementById('servRes').innerHTML=rows||'<p style="font-size:12px;color:var(--text3)">Sin ventas en este periodo.</p>';
 }
 
 function rCuentas(){
@@ -662,8 +660,42 @@ function savePrev(){
 }
 
 function resetMovs(){
-  D.movimientos=[];updFilters();save();render();
+  D.movimientos=[];save();render();
+}
+
+function exportExcel(){
+  const movs=fMovs();
+  const mesNombre=filtro.year?MESES[filtro.month]+' '+filtro.year:'Todos';
+  // build CSV
+  const sep=';';
+  const rows=[
+    ['BSecret · Cuentas — '+mesNombre],
+    [],
+    ['INGRESOS DEL NEGOCIO'],
+    ['Fecha','Concepto','Cuenta','Servicio','Importe'],
+    ...movs.filter(m=>m.tipo==='ingreso').sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(m=>[m.fecha,m.concepto,gN(m.cuenta),sN(m.servicio),(parseFloat(m.importe)||0).toFixed(2)]),
+    [],
+    ['INGRESOS PERSONALES'],
+    ['Fecha','Concepto','Cuenta','Importe'],
+    ...movs.filter(m=>m.tipo==='ingreso_personal').sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(m=>[m.fecha,m.concepto,gN(m.cuenta),(parseFloat(m.importe)||0).toFixed(2)]),
+    [],
+    ['GASTOS'],
+    ['Fecha','Concepto','Cuenta','Tipo','Importe'],
+    ...movs.filter(m=>['gasto_fijo','gasto_var','gasto_bs'].includes(m.tipo)).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(m=>[m.fecha,m.concepto,gN(m.cuenta),m.tipo.replace('gasto_','').replace('fijo','Fijo').replace('var','Variable').replace('bs','BSecret'),(parseFloat(m.importe)||0).toFixed(2)]),
+    [],
+    ['RESUMEN'],
+    ['Total ingresos negocio',movs.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+m.importe,0).toFixed(2)],
+    ['Total ingresos personales',movs.filter(m=>m.tipo==='ingreso_personal').reduce((s,m)=>s+m.importe,0).toFixed(2)],
+    ['Total gastos',movs.filter(m=>['gasto_fijo','gasto_var','gasto_bs'].includes(m.tipo)).reduce((s,m)=>s+m.importe,0).toFixed(2)],
+  ];
+  const csv='\uFEFF'+rows.map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(sep)).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='BSecret_'+mesNombre.replace(' ','_')+'.csv';
+  a.click();
 }
 </script>
 </body>
 </html>
+
