@@ -558,14 +558,18 @@ function rResumen(){
   const pI=parseFloat(D.prev?.ing||0);
   const pG=parseFloat(D.prev?.gas||0);
   const sT=D.cuentas.reduce((s,c)=>s+calcSaldo(c.id),0);
-  const ingMovs=movs.filter(m=>m.tipo==='ingreso');
   let promDia=0;
-  if(ingMovs.length>0){
-    const fechas=ingMovs.map(m=>m.fecha).filter(Boolean).sort();
-    const primera=new Date(fechas[0]);
-    const hoyD=new Date();hoyD.setHours(0,0,0,0);
-    const diasTransc=Math.max(1,Math.round((hoyD-primera)/(1000*60*60*24))+1);
-    promDia=ing/diasTransc;
+  if(ing>0){
+    const hoyD=new Date();
+    let diasTransc;
+    if(filtro.year!==null){
+      // días transcurridos del mes filtrado hasta hoy (o hasta fin de mes si es pasado)
+      const esActual=filtro.year===hoyD.getFullYear()&&filtro.month===hoyD.getMonth();
+      diasTransc=esActual?hoyD.getDate():new Date(filtro.year,filtro.month+1,0).getDate();
+    } else {
+      diasTransc=hoyD.getDate();
+    }
+    promDia=ing/Math.max(1,diasTransc);
   }
   document.getElementById('kpis').innerHTML=`
     <div class="kpi"><div class="kpi-l">Ingresos negocio</div><div class="kpi-v" style="color:var(--green)">${fmt(ing)}</div></div>
@@ -750,4 +754,3 @@ function exportExcel(){
 </script>
 </body>
 </html>
-
